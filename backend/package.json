@@ -11,9 +11,13 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.12.2",
+    "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
-    "node-fetch": "^3.3.2",
-    "viem": "^2.37.8"
+    "viem": "^2.37.8",
+    "x402-axios": "^0.6.5",
+    "x402-express": "^0.6.5"
   }
 }
