@@ -1,34 +1,48 @@
 import os, json, subprocess, sys
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 # Add the AP2 library to the Python path
-# This assumes run.py is in ap2-orchestrator and AP2 is in lib/AP2
 lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'lib', 'AP2', 'src'))
 if lib_path not in sys.path:
     sys.path.insert(0, lib_path)
 
 from agents import RecommenderAgent, CheckoutAgent
 
-def main():
-    # Step 0: Get interactive user input
-    user_message = input("🤖 What would you like to buy today? ")
+app = Flask(__name__)
+CORS(app)  # Enable Cross-Origin Resource Sharing for the frontend
 
-    # Step 1: Recommender Agent (Live Gemini Call)
+@app.route('/recommend', methods=['POST'])
+def recommend_product():
+    """
+    Endpoint for Agent 1: Takes a user prompt and returns an LLM recommendation.
+    """
+    data = request.get_json()
+    user_message = data.get('prompt')
+    if not user_message:
+        return jsonify({"error": "Prompt is required"}), 400
+
+    print(f"\n--- Agent 1 (Recommender) for prompt: '{user_message}' ---")
     recommender = RecommenderAgent()
     rec_resp = recommender.respond(user_message, {})
-    print("\n--- Agent 1 (Recommender) ---")
     
     try:
         product_info = json.loads(rec_resp["data"])
-        print(f"✅ LLM recommends: {product_info['name']} for {product_info['price']} USDC.")
+        print(f"✅ LLM recommends: {product_info['name']}")
+        return jsonify(product_info)
     except (json.JSONDecodeError, KeyError):
-        print(f"❌ Error: Failed to decode or parse recommendation. Raw response: {rec_resp['data']}")
-        return
+        error_msg = f"Failed to decode or parse recommendation. Raw: {rec_resp['data']}"
+        print(f"❌ Error: {error_msg}")
+        return jsonify({"error": error_msg}), 500
 
-    # Step 1.5: Get user confirmation
-    confirmation = input("\n🤔 Do you want to proceed with this purchase? (y/n): ").lower()
-    if confirmation != 'y':
-        print("❌ Purchase cancelled by user.")
-        return
+@app.route('/checkout', methods=['POST'])
+def checkout_product():
+    """
+    Endpoint for Agent 2 & 3: Takes product info, prepares payment, and executes.
+    """
+    product_info = request.get_json()
+    if not product_info:
+        return jsonify({"error": "Product info is required"}), 400
 
     # Step 2: Checkout Agent
     checkout = CheckoutAgent()
@@ -36,16 +50,13 @@ def main():
     print("\n--- Agent 2 (Checkout) ---")
     print(checkout_resp["data"]["status"])
 
-    # Step 3: Write payment.json for the JS client
+    # Step 3: Write payment.json
     js_client_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
-    os.makedirs(js_client_dir, exist_ok=True)
     payment_file = os.path.join(js_client_dir, "payment.json")
-
     payment_info_dict = checkout_resp["data"]["payment_info"].to_dict()
-
     with open(payment_file, "w") as f:
         json.dump(payment_info_dict, f, indent=2)
-    print(f"\n✅ Payment info written to {payment_file}")
+    print(f"✅ Payment info written to {payment_file}")
 
     # Step 4: Execute the JS Payment Agent (x402)
     print("\n--- Triggering JS Payment Agent (x402) ---")
@@ -53,20 +64,16 @@ def main():
         js_client_path = os.path.join(js_client_dir, 'client.js')
         result = subprocess.run(
             ['node', js_client_path],
-            capture_output=True,
-            text=True,
-            check=True,
+            capture_output=True, text=True, check=True,
             cwd=os.path.abspath(os.path.join(js_client_dir, '..'))
         )
-        print("\n--- JS Client Output ---")
+        print("--- JS Client Output ---")
         print(result.stdout)
-        print("✅ End-to-end flow completed successfully.")
+        return jsonify({"status": "success", "output": result.stdout})
     except subprocess.CalledProcessError as e:
-        print("\n--- ❌ JS Client Error ---")
-        print(e.stderr)
-    except FileNotFoundError:
-        print("\n❌ Error: 'node' command not found. Please ensure Node.js is installed and in your PATH.")
+        print(f"--- ❌ JS Client Error ---\n{e.stderr}")
+        return jsonify({"error": "JS client execution failed", "details": e.stderr}), 500
 
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    # Runs the Flask server on port 5001
+    app.run(port=5001, debug=True)

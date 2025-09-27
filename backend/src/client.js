@@ -1,44 +1,47 @@
+// js-client/client.js
 import axios from "axios";
 import dotenv from "dotenv";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { polygonAmoy } from "viem/chains";
 import { withPaymentInterceptor, decodeXPaymentResponse } from "x402-axios";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import path from "path";
+
 
 dotenv.config();
 
-const baseURL = "http://localhost:4020";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// 1️⃣ Create account from private key
+// Read payment info from Python orchestrator
+const paymentInfo = JSON.parse(fs.readFileSync(path.join(__dirname, "payment.json"), "utf-8"));
+
 const account = privateKeyToAccount(process.env.CLIENT_PRIVATE_KEY);
-
-// 2️⃣ WalletClient for viem
 const walletClient = createWalletClient({
   account,
   chain: polygonAmoy,
   transport: http(process.env.RPC_URL),
 });
 
-// 3️⃣ Axios with x402 interceptor
-const api = withPaymentInterceptor(axios.create({ baseURL }), walletClient);
+const api = withPaymentInterceptor(axios.create({ baseURL: "http://localhost:4020" }), walletClient);
 
 async function main() {
   try {
     const response = await api.post("/buy-product", {
       productId: "Decentralized-Hoodie",
-      amount: ".005", // 0.005 USDC (6 decimals)
+      amount: paymentInfo.amount.toString(), // 0.005 USDC
     });
 
     console.log("✅ Server Response:", response.data);
 
     if (response.headers["x-payment-response"]) {
-      const paymentInfo = decodeXPaymentResponse(
-        response.headers["x-payment-response"]
-      );
-      console.log("💸 Payment Info:", paymentInfo);
+      const paymentResp = decodeXPaymentResponse(response.headers["x-payment-response"]);
+      console.log("💸 Payment Info:", paymentResp);
     }
-  } catch (error) {
-    console.error("❌ Error:", error.response?.data || error.message);
+  } catch (err) {
+    console.error("❌ Error:", err.response?.data || err.message);
   }
 }
 
