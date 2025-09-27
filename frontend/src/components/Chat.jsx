@@ -1,71 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { Send, Bot, User, Loader, Wallet, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Send, Bot, User, Loader, Wallet, CheckCircle } from 'lucide-react';
 
-function Chat({ onRecommendation, messages, setMessages, onCheckout }) {
+function Chat({ onRecommendation, messages, setMessages, onCheckout, isWalletConnected, walletAddress, connectWallet }) {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
   const [awaitingPurchaseConfirmation, setAwaitingPurchaseConfirmation] = useState(false);
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
   const [awaitingWalletConnection, setAwaitingWalletConnection] = useState(false);
   const [currentAgent, setCurrentAgent] = useState('recommender'); // 'recommender', 'checkout', 'payment'
 
-  // Check wallet connection on component mount
-  useEffect(() => {
-    checkWalletConnection();
-  }, []);
 
-  const checkWalletConnection = async () => {
-    if (typeof window.ethereum !== 'undefined') {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-          setIsWalletConnected(true);
-          setWalletAddress(accounts[0]);
-        }
-      } catch (error) {
-        console.error('Error checking wallet connection:', error);
-      }
-    }
-  };
 
-  const connectWallet = async () => {
-    if (typeof window.ethereum === 'undefined') {
-      setMessages((prev) => [...prev, { 
-        text: '🦊 Please install MetaMask or another Web3 wallet to make payments.', 
-        from: 'agent',
-        agentType: 'checkout'
-      }]);
-      return;
-    }
-
-    try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      if (accounts.length > 0) {
-        setIsWalletConnected(true);
-        setWalletAddress(accounts[0]);
-        setAwaitingWalletConnection(false);
-        
+  const handleWalletConnectionForCheckout = async () => {
+    await connectWallet();
+    setAwaitingWalletConnection(false);
+    
+    // Check if wallet got connected and proceed with checkout
+    setTimeout(() => {
+      if (isWalletConnected && currentProduct) {
         setMessages((prev) => [...prev, { 
-          text: `✅ Wallet connected successfully!\n\n📱 Address: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}\n🌐 Network: Polygon Amoy\n\nNow I'll process your order for ${currentProduct.name} (${currentProduct.price} USDC). Please approve the transaction in your wallet when prompted.`, 
+          text: `Now I'll process your order for ${currentProduct.name} (${currentProduct.price} USDC). Please approve the transaction in your wallet when prompted.`, 
           from: 'agent',
           agentType: 'checkout'
         }]);
         
-        // Proceed with checkout
         setTimeout(() => {
-          onCheckout(currentProduct, accounts[0]);
+          onCheckout(currentProduct, walletAddress);
         }, 1000);
       }
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
-      setMessages((prev) => [...prev, { 
-        text: '❌ Failed to connect wallet. Please try again.', 
-        from: 'agent',
-        agentType: 'checkout'
-      }]);
-    }
+    }, 1500);
   };
 
   const handleSubmit = async (e) => {
@@ -81,7 +44,7 @@ function Chat({ onRecommendation, messages, setMessages, onCheckout }) {
     // Handle wallet connection prompt
     if (awaitingWalletConnection) {
       if (currentPrompt.includes('connect') || currentPrompt.includes('yes')) {
-        await connectWallet();
+        await handleWalletConnectionForCheckout();
         return;
       } else if (currentPrompt.includes('no') || currentPrompt.includes('cancel')) {
         setAwaitingWalletConnection(false);
@@ -104,14 +67,14 @@ function Chat({ onRecommendation, messages, setMessages, onCheckout }) {
         
         // Transfer to checkout agent
         setMessages((prev) => [...prev, { 
-          text: '🔄 Transferring you to our Checkout Agent...\n\n👋 Hi! I\'m the Checkout Agent. I\'ll help you complete your purchase securely.', 
+          text: 'Transferring you to our Checkout Agent...\n\nHi! I\'m the Checkout Agent. I\'ll help you complete your purchase securely.', 
           from: 'agent',
           agentType: 'checkout'
         }]);
         
         setTimeout(() => {
           setMessages((prev) => [...prev, { 
-            text: `📋 Order Summary:\n• Product: ${currentProduct.name}\n• Price: ${currentProduct.price} USDC\n• Payment Method: x402 Protocol\n• Network: Polygon Amoy\n\n🔍 Checking for available coupons and discounts...`, 
+            text: `Order Summary:\n• Product: ${currentProduct.name}\n• Price: ${currentProduct.price} USDC\n• Payment Method: x402 Protocol\n• Network: Polygon Amoy\n\nChecking for available coupons and discounts...`, 
             from: 'agent',
             agentType: 'checkout'
           }]);
@@ -121,13 +84,13 @@ function Chat({ onRecommendation, messages, setMessages, onCheckout }) {
           if (!isWalletConnected) {
             setAwaitingWalletConnection(true);
             setMessages((prev) => [...prev, { 
-              text: `💡 No coupons found, but you're getting our best price!\n\n🔐 To complete your payment, I need to connect to your Web3 wallet. This ensures secure, decentralized payments.\n\n📱 Would you like to connect your wallet now? (Type 'connect' or 'yes')`, 
+              text: `No coupons found, but you're getting our best price!\n\nTo complete your payment, I need to connect to your Web3 wallet. This ensures secure, decentralized payments.\n\nWould you like to connect your wallet now? (Type 'connect' or 'yes')`, 
               from: 'agent',
               agentType: 'checkout'
             }]);
           } else {
             setMessages((prev) => [...prev, { 
-              text: `💡 No coupons found, but you're getting our best price!\n\n✅ Your wallet is already connected (${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}). Processing your order now...`, 
+              text: `No coupons found, but you're getting our best price!\n\nYour wallet is already connected (${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}). Processing your order now...`, 
               from: 'agent',
               agentType: 'checkout'
             }]);
@@ -160,9 +123,9 @@ function Chat({ onRecommendation, messages, setMessages, onCheckout }) {
       const data = await response.json();
 
       if (response.ok) {
-        // Add agent response and show product
+        // Add agent response with full product details
         setMessages((prev) => [...prev, { 
-          text: `Perfect! I found the ideal hoodie for you. Check out the ${data.name} for ${data.price} USDC - it's exactly what you're looking for! Would you like to purchase this item? Just say "yes" to buy it now!`, 
+          text: `Perfect! I found the ideal hoodie for you:\n\n${data.name}\nPrice: ${data.price} USDC\nDescription: ${data.description}\n\nThis hoodie is exactly what you're looking for! Would you like to purchase this item? Just say "yes" to buy it now!`, 
           from: 'agent',
           agentType: 'recommender'
         }]);
@@ -221,16 +184,6 @@ function Chat({ onRecommendation, messages, setMessages, onCheckout }) {
 
   return (
     <div className="flex flex-col h-96">
-      {/* Wallet Status Bar */}
-      {isWalletConnected && (
-        <div className="px-4 py-2 bg-green-500/20 border-b border-green-500/30">
-          <div className="flex items-center space-x-2 text-sm">
-            <Wallet className="w-4 h-4 text-green-400" />
-            <span className="text-green-300">Wallet Connected:</span>
-            <span className="text-white font-mono">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
-          </div>
-        </div>
-      )}
       
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg, index) => (
@@ -247,9 +200,9 @@ function Chat({ onRecommendation, messages, setMessages, onCheckout }) {
             }`}>
               {msg.agentType && msg.from === 'agent' && (
                 <div className="text-xs text-gray-400 mb-1 capitalize">
-                  {msg.agentType === 'recommender' ? '🤖 Recommender Agent' : 
-                   msg.agentType === 'checkout' ? '✅ Checkout Agent' : 
-                   '💳 Payment Agent'}
+                  {msg.agentType === 'recommender' ? 'Recommender Agent' : 
+                   msg.agentType === 'checkout' ? 'Checkout Agent' : 
+                   'Payment Agent'}
                 </div>
               )}
               <p className="text-sm leading-relaxed whitespace-pre-line">{msg.text}</p>
