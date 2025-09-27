@@ -1,15 +1,78 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Chat from './components/Chat';
 import Product from './components/Product';
 import PaymentModal from './components/PaymentModal';
-import { Bot, ShoppingBag } from 'lucide-react';
+import { Bot, ShoppingBag, Wallet, AlertCircle } from 'lucide-react';
 
 function App() {
   const [product, setProduct] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState('');
   const [messages, setMessages] = useState([
-    { text: "Hi! I'm your AI shopping assistant. What kind of hoodie are you looking for today?", from: 'agent' }
+    { text: "Hi! I'm your AI shopping assistant. What kind of hoodie are you looking for today?", from: 'agent', agentType: 'recommender' }
   ]);
+  const [isWalletConnected, setIsWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
+
+  // Check wallet connection on component mount
+  useEffect(() => {
+    checkWalletConnection();
+  }, []);
+
+  const checkWalletConnection = async () => {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length > 0) {
+          setIsWalletConnected(true);
+          setWalletAddress(accounts[0]);
+        }
+      } catch (error) {
+        console.error('Error checking wallet connection:', error);
+      }
+    }
+  };
+
+  const connectWallet = async () => {
+    if (typeof window.ethereum === 'undefined') {
+      setMessages((prev) => [...prev, { 
+        text: 'Please install MetaMask or another Web3 wallet to make payments.', 
+        from: 'agent',
+        agentType: 'checkout'
+      }]);
+      return;
+    }
+
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (accounts.length > 0) {
+        setIsWalletConnected(true);
+        setWalletAddress(accounts[0]);
+        
+        setMessages((prev) => [...prev, { 
+          text: `Wallet connected successfully!\n\nAddress: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}\nNetwork: Polygon Amoy`, 
+          from: 'agent',
+          agentType: 'recommender'
+        }]);
+      }
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+      setMessages((prev) => [...prev, { 
+        text: 'Failed to connect wallet. Please try again.', 
+        from: 'agent',
+        agentType: 'recommender'
+      }]);
+    }
+  };
+
+  const disconnectWallet = () => {
+    setIsWalletConnected(false);
+    setWalletAddress('');
+    setMessages((prev) => [...prev, { 
+      text: 'Wallet disconnected successfully.', 
+      from: 'agent',
+      agentType: 'recommender'
+    }]);
+  };
 
   // Function to handle the recommendation from the Chat component
   const handleRecommendation = (recommendedProduct) => {
@@ -22,14 +85,14 @@ function App() {
     
     // Add processing message to chat
     setMessages(prev => [...prev, {
-      text: "🔄 Transferring to Payment Agent...\n\n💳 Hi! I'm the Payment Agent. I'll handle your secure transaction using the x402 protocol.",
+      text: "Transferring to Payment Agent...\n\nHi! I'm the Payment Agent. I'll handle your secure transaction using the x402 protocol.",
       from: 'agent',
       agentType: 'payment'
     }]);
     
     setTimeout(() => {
       setMessages(prev => [...prev, {
-        text: "⚡ Initiating x402 payment protocol...\n📡 Broadcasting transaction to Polygon network...",
+        text: "Initiating x402 payment protocol...\nBroadcasting transaction to Polygon network...",
         from: 'agent',
         agentType: 'payment'
       }]);
@@ -54,14 +117,14 @@ function App() {
         const txHash = result.output ? extractTxHash(result.output) : null;
         
         setMessages(prev => [...prev, {
-          text: `🎉 Payment successful! Your order has been placed successfully.\n\n📄 Transaction Details:\n• Product: ${productToCheckout.name}\n• Amount: ${productToCheckout.price} USDC\n• Network: Polygon Amoy${txHash ? `\n• Tx Hash: ${txHash}` : ''}\n\nThank you for your purchase!`,
+          text: `Payment successful! Your order has been placed successfully.\n\nTransaction Details:\n• Product: ${productToCheckout.name}\n• Amount: ${productToCheckout.price} USDC\n• Network: Polygon Amoy${txHash ? `\n• Tx Hash: ${txHash}` : ''}\n\nThank you for your purchase!`,
           from: 'agent',
           agentType: 'payment'
         }]);
       } else {
         setPaymentStatus('failed');
         setMessages(prev => [...prev, {
-          text: `❌ Payment failed. ${result.error || 'There was an issue processing your payment.'} Please try again.`,
+          text: `Payment failed. ${result.error || 'There was an issue processing your payment.'} Please try again.`,
           from: 'agent',
           agentType: 'payment'
         }]);
@@ -70,7 +133,7 @@ function App() {
       console.error('Checkout error:', error);
       setPaymentStatus('failed');
       setMessages(prev => [...prev, {
-        text: "❌ Network error. Please check your connection and try again.",
+        text: "Network error. Please check your connection and try again.",
         from: 'agent',
         agentType: 'payment'
       }]);
@@ -92,12 +155,38 @@ function App() {
       <div className="relative min-h-screen flex flex-col items-center justify-center p-4">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-4">
-            AgentX402
-          </h1>
-          <p className="text-gray-400 text-lg max-w-md">
-            Powered by intelligent agents and x402 micropayments
-          </p>
+          <div className="flex justify-between items-start w-full max-w-4xl mb-6">
+            <div></div> {/* Spacer */}
+            <div className="text-center">
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-4">
+                AgentX402
+              </h1>
+              <p className="text-gray-400 text-lg max-w-md">
+                Powered by intelligent agents and x402 micropayments
+              </p>
+            </div>
+            {/* Wallet Connect Button */}
+            <div className="flex flex-col items-end">
+              {isWalletConnected && (
+                <div className="flex items-center space-x-2 text-sm mb-2">
+                  <Wallet className="w-4 h-4 text-green-400" />
+                  <span className="text-green-300">Connected:</span>
+                  <span className="text-white font-mono">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
+                </div>
+              )}
+              <button
+                onClick={isWalletConnected ? disconnectWallet : connectWallet}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center space-x-2 ${
+                  isWalletConnected 
+                    ? 'bg-red-600 hover:bg-red-700 text-white' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                <Wallet className="w-4 h-4" />
+                <span>{isWalletConnected ? 'Disconnect' : 'Connect Wallet'}</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Main Content */}
@@ -114,9 +203,30 @@ function App() {
                 messages={messages}
                 setMessages={setMessages}
                 onCheckout={handleCheckout}
+                isWalletConnected={isWalletConnected}
+                walletAddress={walletAddress}
+                connectWallet={connectWallet}
               />
             </div>
 
+
+          </div>
+
+          {/* Footer */}
+          <div className="text-center mt-8 text-gray-500 text-sm">
+            <p>Secure payments powered by x402 • Multi-agent AI system</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment Modal */}
+      {paymentStatus && (
+        <PaymentModal 
+          status={paymentStatus} 
+          onClose={() => setPaymentStatus('')}
+        />
+      )}
+    </div>
   );
 }
 
