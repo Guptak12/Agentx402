@@ -3,7 +3,6 @@ import Chat from './components/Chat';
 import Product from './components/Product';
 import PaymentModal from './components/PaymentModal';
 import { Bot, ShoppingBag, Wallet, AlertCircle } from 'lucide-react';
-import { paymentService } from './services/paymentService';
 
 function App() {
   const [product, setProduct] = useState(null);
@@ -86,62 +85,46 @@ function App() {
     
     // Add processing message to chat
     setMessages(prev => [...prev, {
-      text: "Transferring to Payment Agent...\n\nHi! I'm the Payment Agent. I'll handle your secure transaction.",
+      text: "Transferring to Payment Agent...\n\nHi! I'm the Payment Agent. I'll handle your secure transaction using the x402 protocol.",
       from: 'agent',
       agentType: 'payment'
     }]);
     
     setTimeout(() => {
       setMessages(prev => [...prev, {
-        text: "Initiating wallet transaction...\nPlease approve the transaction in your wallet.",
+        text: "Initiating x402 payment protocol...\nBroadcasting transaction to Polygon network...",
         from: 'agent',
         agentType: 'payment'
       }]);
     }, 1000);
     
     try {
-      // Step 1: Send transaction via user's wallet
-      const paymentResult = await paymentService.sendPayment(
-        productToCheckout.id || productToCheckout.name,
-        productToCheckout.price
-      );
+      const response = await fetch('http://localhost:5001/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...productToCheckout,
+          walletAddress: userWalletAddress
+        }),
+      });
 
-      if (!paymentResult.success) {
-        setPaymentStatus('failed');
-        setMessages(prev => [...prev, {
-          text: `Payment failed: ${paymentResult.error}. Please try again.`,
-          from: 'agent',
-          agentType: 'payment'
-        }]);
-        return;
-      }
+      const result = await response.json();
 
-      const txHash = paymentResult.txHash;
-      
-      setMessages(prev => [...prev, {
-        text: `Transaction sent! Hash: ${txHash}\n\nVerifying payment with merchant...`,
-        from: 'agent',
-        agentType: 'payment'
-      }]);
-
-      // Step 2: Verify payment with merchant
-      const verificationResult = await paymentService.verifyPayment(
-        txHash,
-        productToCheckout.id || productToCheckout.name,
-        productToCheckout.price
-      );
-
-      if (verificationResult.success) {
+      if (response.ok) {
         setPaymentStatus('success');
+        
+        // Extract transaction hash from the response
+        const txHash = result.output ? extractTxHash(result.output) : null;
+        
         setMessages(prev => [...prev, {
-          text: `Payment successful! Your order has been placed successfully.\n\nTransaction Details:\n• Product: ${productToCheckout.name}\n• Amount: ${productToCheckout.price} USDC\n• Network: Polygon Amoy\n• Tx Hash: ${txHash}\n\nThank you for your purchase!`,
+          text: `Payment successful! Your order has been placed successfully.\n\nTransaction Details:\n• Product: ${productToCheckout.name}\n• Amount: ${productToCheckout.price} USDC\n• Network: Polygon Amoy${txHash ? `\n• Tx Hash: ${txHash}` : ''}\n\nThank you for your purchase!`,
           from: 'agent',
           agentType: 'payment'
         }]);
       } else {
         setPaymentStatus('failed');
         setMessages(prev => [...prev, {
-          text: `Payment verification failed: ${verificationResult.error || 'Unable to verify payment.'}`,
+          text: `Payment failed. ${result.error || 'There was an issue processing your payment.'} Please try again.`,
           from: 'agent',
           agentType: 'payment'
         }]);
@@ -150,14 +133,19 @@ function App() {
       console.error('Checkout error:', error);
       setPaymentStatus('failed');
       setMessages(prev => [...prev, {
-        text: `Payment error: ${error.message || 'Network error. Please check your connection and try again.'}`,
+        text: "Network error. Please check your connection and try again.",
         from: 'agent',
         agentType: 'payment'
       }]);
     }
   };
 
-
+  // Helper function to extract transaction hash from response
+  const extractTxHash = (output) => {
+    const txHashRegex = /0x[a-fA-F0-9]{64}/;
+    const match = output.match(txHashRegex);
+    return match ? match[0] : null;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
