@@ -1,23 +1,39 @@
-import axios from “axios”;
-import { Hex } from “viem”;
-import { privateKeyToAccount } from “viem/accounts”;
-import { withPaymentInterceptor, decodeXPaymentResponse } from “x402-axios”;
-import dotenv from “dotenv”;
+import axios from "axios";
+import dotenv from "dotenv";
+import { privateKeyToAccount } from "viem/accounts";
+import {
+  withPaymentInterceptor,
+  decodeXPaymentResponse,
+} from "x402-axios";
 
 dotenv.config();
-const baseURL = “http://localhost:4020”;
-const account = privateKeyToAccount(process.env.PRIVATE_KEY as Hex);
 
+const baseURL = "http://localhost:4020";
+
+// This is the wallet that will pay
+const account = privateKeyToAccount(process.env.CLIENT_PRIVATE_KEY);
+
+// Wrap axios with payment interceptor
 const api = withPaymentInterceptor(axios.create({ baseURL }), account);
 
-api.get(”/get-data”)
-  .then((response) => {
-    console.log(response.data);
-    const paymentResponse = decodeXPaymentResponse(
-      response.headers[”x-payment-response”]
-    );
-    console.log(paymentResponse);
-  })
-  .catch((error) => {
-    console.error(error.response?.data);
-  });
+async function main() {
+  try {
+    const response = await api.post("/buy-product", {
+      productId: "Decentralized-Hoodie",
+      amount: "5000", // 50 USDC
+    });
+
+    console.log("✅ Server Response:", response.data);
+
+    if (response.headers["x-payment-response"]) {
+      const paymentInfo = decodeXPaymentResponse(
+        response.headers["x-payment-response"]
+      );
+      console.log("💸 Payment Info:", paymentInfo);
+    }
+  } catch (error) {
+    console.error("❌ Error:", error.response?.data || error.message);
+  }
+}
+
+main();
