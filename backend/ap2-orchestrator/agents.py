@@ -11,9 +11,9 @@ class RecommenderAgent:
     def __init__(self):
         # Mock dataset with productId for the JS client
         self.products = [
-            {"name": "Hoodie Classic", "price": 0.005, "productId": "Decentralized-Hoodie"},
-            {"name": "Hoodie Premium", "price": 0.007, "productId": "Premium-Hoodie"},
-            {"name": "Hoodie Budget", "price": 0.003, "productId": "Budget-Hoodie"}
+            {"name": "Hoodie Classic", "price": 0.005, "productId": "Decentralized-Hoodie", "description": "A stylish decentralized hoodie perfect for crypto enthusiasts"},
+            {"name": "Hoodie Premium", "price": 0.007, "productId": "Premium-Hoodie", "description": "Premium quality hoodie with superior comfort and durability"},
+            {"name": "Hoodie Budget", "price": 0.003, "productId": "Budget-Hoodie", "description": "Affordable hoodie without compromising on style and comfort"}
         ]
 
     def respond(self, user_message, context):
