@@ -37,7 +37,11 @@ The combination of a multi-agent system (AP2) and the x402 micropayment protocol
 
 -----
 
-## Architecture Diagram
+## 🏗️ Architecture
+
+![Architecture Diagram](./assets/Untitled-2025-07-06-0211.svg)
+
+### Frontend (React + Vite + Tailwind)
 
 ```
 +-----------------+      +----------------------+      +------------------------+
