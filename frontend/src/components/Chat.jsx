@@ -7,6 +7,7 @@ function Chat({ onRecommendation, messages, setMessages, onCheckout, isWalletCon
   const [currentProduct, setCurrentProduct] = useState(null);
   const [awaitingPurchaseConfirmation, setAwaitingPurchaseConfirmation] = useState(false);
   const [awaitingWalletConnection, setAwaitingWalletConnection] = useState(false);
+  const [awaitingPaymentConfirmation, setAwaitingPaymentConfirmation] = useState(false);
   const [currentAgent, setCurrentAgent] = useState('recommender'); // 'recommender', 'checkout', 'payment'
 
 
@@ -59,6 +60,32 @@ function Chat({ onRecommendation, messages, setMessages, onCheckout, isWalletCon
       }
     }
 
+    // Handle payment confirmation when wallet is already connected
+    if (awaitingPaymentConfirmation && currentProduct) {
+      if (currentPrompt.includes('pay') || currentPrompt.includes('proceed') || currentPrompt.includes('yes')) {
+        setAwaitingPaymentConfirmation(false);
+        setMessages((prev) => [...prev, { 
+          text: 'Processing your payment... Please approve the transaction in your wallet when prompted.', 
+          from: 'agent',
+          agentType: 'checkout'
+        }]);
+        setTimeout(() => {
+          onCheckout(currentProduct, walletAddress);
+        }, 1000);
+        return;
+      } else if (currentPrompt.includes('no') || currentPrompt.includes('cancel')) {
+        setAwaitingPaymentConfirmation(false);
+        setAwaitingPurchaseConfirmation(false);
+        setCurrentAgent('recommender');
+        setMessages((prev) => [...prev, { 
+          text: 'Payment cancelled. Feel free to ask for other recommendations.', 
+          from: 'agent',
+          agentType: 'recommender'
+        }]);
+        return;
+      }
+    }
+
     // Check if user is confirming purchase
     if (awaitingPurchaseConfirmation && currentProduct) {
       if (currentPrompt.includes('yes') || currentPrompt.includes('buy') || currentPrompt.includes('purchase')) {
@@ -89,12 +116,12 @@ function Chat({ onRecommendation, messages, setMessages, onCheckout, isWalletCon
               agentType: 'checkout'
             }]);
           } else {
+            setAwaitingPaymentConfirmation(true);
             setMessages((prev) => [...prev, { 
-              text: `No coupons found, but you're getting our best price!\n\nYour wallet is already connected (${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}). Processing your order now...`, 
+              text: `No coupons found, but you're getting our best price!\n\nYour wallet is connected (${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}).\n\nReady to proceed with payment? This will open your wallet for approval. Type 'pay' or 'proceed' to continue.`, 
               from: 'agent',
               agentType: 'checkout'
             }]);
-            setTimeout(() => onCheckout(currentProduct, walletAddress), 1000);
           }
         }, 2500);
         
@@ -175,6 +202,9 @@ function Chat({ onRecommendation, messages, setMessages, onCheckout, isWalletCon
   const getPlaceholder = () => {
     if (awaitingWalletConnection) {
       return "Type 'connect' to connect your wallet...";
+    }
+    if (awaitingPaymentConfirmation) {
+      return "Type 'pay' to proceed or 'cancel' to stop...";
     }
     if (awaitingPurchaseConfirmation) {
       return "Say 'yes' to buy or 'no' to cancel...";
