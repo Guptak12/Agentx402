@@ -44,16 +44,24 @@ def checkout_product():
     if not product_info:
         return jsonify({"error": "Product info is required"}), 400
 
+    # Extract wallet address if provided
+    wallet_address = product_info.get('walletAddress')
+    print(f"\n--- Agent 2 (Checkout) for wallet: {wallet_address} ---")
+
     # Step 2: Checkout Agent
     checkout = CheckoutAgent()
     checkout_resp = checkout.respond(product_info, {})
-    print("\n--- Agent 2 (Checkout) ---")
     print(checkout_resp["data"]["status"])
 
-    # Step 3: Write payment.json
+    # Step 3: Write payment.json with wallet address
     js_client_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
     payment_file = os.path.join(js_client_dir, "payment.json")
     payment_info_dict = checkout_resp["data"]["payment_info"].to_dict()
+    
+    # Add wallet address to payment info if provided
+    if wallet_address:
+        payment_info_dict['walletAddress'] = wallet_address
+    
     with open(payment_file, "w") as f:
         json.dump(payment_info_dict, f, indent=2)
     print(f"✅ Payment info written to {payment_file}")
