@@ -50,7 +50,25 @@ async function main() {
   try {
     console.log("🚀 Initiating x402 payment...");
     
-    const response = await api.post("/buy-product", {
+    // Route to correct endpoint based on product
+    let endpoint;
+    switch(paymentInfo.productId) {
+      case "Budget-Hoodie":
+        endpoint = "/buy-budget";
+        break;
+      case "Decentralized-Hoodie":
+        endpoint = "/buy-classic";
+        break;
+      case "Premium-Hoodie":
+        endpoint = "/buy-premium";
+        break;
+      default:
+        endpoint = "/buy-product"; // fallback
+    }
+    
+    console.log(`📡 Using endpoint: ${endpoint} for ${paymentInfo.productId}`);
+    
+    const response = await api.post(endpoint, {
       productId: paymentInfo.productId,
       amount: paymentInfo.amount.toString(),
     });
