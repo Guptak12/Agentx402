@@ -9,7 +9,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const merchantWallet = process.env.PRIVATE_KEY;
+const merchantWallet = process.env.MERCHANT_WALLET;
 
 // Create separate x402 protected endpoints for each product
 app.use(
