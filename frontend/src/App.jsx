@@ -117,7 +117,7 @@ function App() {
         const txHash = result.output ? extractTxHash(result.output) : null;
         
         setMessages(prev => [...prev, {
-          text: `Payment successful! Your order has been placed successfully.\n\nTransaction Details:\n• Product: ${productToCheckout.name}\n• Amount: ${productToCheckout.price} USDC\n• Network: Polygon Amoy${txHash ? `\n• Tx Hash: ${txHash}` : ''}\n\nThank you for your purchase!`,
+          text: `✅ Payment successful! Your order has been placed successfully.\n\n🔍 Transaction Details:\n• Product: ${productToCheckout.name}\n• Amount: ${productToCheckout.price} USDC\n• Network: Polygon Amoy${txHash ? `\n• Tx Hash: ${txHash}\n• 🌐 View on PolygonScan: https://amoy.polygonscan.com/tx/${txHash}` : ''}\n\n🎉 Thank you for your purchase!`,
           from: 'agent',
           agentType: 'payment'
         }]);

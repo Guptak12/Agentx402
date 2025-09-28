@@ -11,9 +11,9 @@ class RecommenderAgent:
     def __init__(self):
         # Mock dataset with productId for the JS client
         self.products = [
-            {"name": "Hoodie Classic", "price": 0.005, "productId": "Decentralized-Hoodie"},
-            {"name": "Hoodie Premium", "price": 0.007, "productId": "Premium-Hoodie"},
-            {"name": "Hoodie Budget", "price": 0.003, "productId": "Budget-Hoodie"}
+            {"name": "Hoodie Classic", "price": 0.5, "productId": "Decentralized-Hoodie"},
+            {"name": "Hoodie Premium", "price": 0.7, "productId": "Premium-Hoodie"},
+            {"name": "Hoodie Budget", "price": 0.3, "productId": "Budget-Hoodie"}
         ]
 
     def respond(self, user_message, context):
@@ -24,7 +24,7 @@ class RecommenderAgent:
         Available products: {self.products}
         Your task is to pick the best hoodie based on a balance of style and price.
         Respond ONLY with the JSON object for the selected product. Do not include any other text or markdown formatting.
-        Example response: {{"name": "Hoodie Classic", "price": 0.005, "productId": "Decentralized-Hoodie"}}
+        Example response: {{"name": "Hoodie Classic", "price": 0.5, "productId": "Decentralized-Hoodie"}}
         """
         response = model.generate_content(prompt)
         # Clean up potential markdown formatting from the model's response
